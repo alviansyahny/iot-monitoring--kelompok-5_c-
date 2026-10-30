@@ -288,8 +288,8 @@ async function fetchStats() {
 // 3. Ambil Riwayat 20 Data untuk Grafik & 10 Data untuk Tabel
 async function fetchHistory() {
   try {
-    const query = selectedDevice ? `&device_id=${encodeURIComponent(selectedDevice)}` : '';
-    const res = await fetch(`/api/readings?limit=20${query}`);
+    const query = selectedDevice ? `?limit=20&device_id=${encodeURIComponent(selectedDevice)}` : '?limit=20';
+    const res = await fetch(`/api/readings${query}`);
     const result = await res.json();
     const rows = result.data || [];
 
