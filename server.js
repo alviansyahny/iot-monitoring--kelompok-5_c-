@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 
 // Middleware untuk membaca format JSON
 app.use(express.json());
