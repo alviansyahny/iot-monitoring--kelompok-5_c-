@@ -86,10 +86,17 @@ app.post('/api/readings', (req, res) => {
 /**
  * 2. GET /api/readings/latest
  * Mengambil 1 data sensor paling baru untuk kartu nilai
+ * Mendukung filter query: ?device_id=GH-01
  */
 app.get('/api/readings/latest', (req, res) => {
   try {
-    const latest = db.prepare('SELECT * FROM readings ORDER BY id DESC LIMIT 1').get();
+    const { device_id } = req.query;
+    let latest;
+    if (device_id && device_id !== 'all') {
+      latest = db.prepare('SELECT * FROM readings WHERE device_id = ? ORDER BY id DESC LIMIT 1').get(device_id);
+    } else {
+      latest = db.prepare('SELECT * FROM readings ORDER BY id DESC LIMIT 1').get();
+    }
 
     if (!latest) {
       return res.status(200).json({
@@ -113,14 +120,23 @@ app.get('/api/readings/latest', (req, res) => {
 });
 
 /**
- * 3. GET /api/readings?limit=20
+ * 3. GET /api/readings?limit=20&device_id=GH-01
  * Mengambil riwayat N data terakhir untuk grafik dan tabel
+ * Mendukung filter device_id
  */
 app.get('/api/readings', (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 20;
-    const stmt = db.prepare('SELECT * FROM readings ORDER BY id DESC LIMIT ?');
-    const rows = stmt.all(limit);
+    const { device_id } = req.query;
+
+    let rows;
+    if (device_id && device_id !== 'all') {
+      const stmt = db.prepare('SELECT * FROM readings WHERE device_id = ? ORDER BY id DESC LIMIT ?');
+      rows = stmt.all(device_id, limit);
+    } else {
+      const stmt = db.prepare('SELECT * FROM readings ORDER BY id DESC LIMIT ?');
+      rows = stmt.all(limit);
+    }
 
     return res.status(200).json({
       status: 'sukses',
@@ -139,20 +155,39 @@ app.get('/api/readings', (req, res) => {
 /**
  * 4. GET /api/stats
  * Mengambil statistik rata-rata, minimum, dan maksimum untuk suhu dan kelembapan
+ * Mendukung filter ?device_id=GH-01
  */
 app.get('/api/stats', (req, res) => {
   try {
-    const stats = db.prepare(`
-      SELECT 
-        COUNT(id) as total_data,
-        ROUND(AVG(suhu), 2) as avg_suhu,
-        MIN(suhu) as min_suhu,
-        MAX(suhu) as max_suhu,
-        ROUND(AVG(kelembapan), 2) as avg_kelembapan,
-        MIN(kelembapan) as min_kelembapan,
-        MAX(kelembapan) as max_kelembapan
-      FROM readings
-    `).get();
+    const { device_id } = req.query;
+    let stats;
+
+    if (device_id && device_id !== 'all') {
+      stats = db.prepare(`
+        SELECT 
+          COUNT(id) as total_data,
+          ROUND(AVG(suhu), 2) as avg_suhu,
+          MIN(suhu) as min_suhu,
+          MAX(suhu) as max_suhu,
+          ROUND(AVG(kelembapan), 2) as avg_kelembapan,
+          MIN(kelembapan) as min_kelembapan,
+          MAX(kelembapan) as max_kelembapan
+        FROM readings
+        WHERE device_id = ?
+      `).get(device_id);
+    } else {
+      stats = db.prepare(`
+        SELECT 
+          COUNT(id) as total_data,
+          ROUND(AVG(suhu), 2) as avg_suhu,
+          MIN(suhu) as min_suhu,
+          MAX(suhu) as max_suhu,
+          ROUND(AVG(kelembapan), 2) as avg_kelembapan,
+          MIN(kelembapan) as min_kelembapan,
+          MAX(kelembapan) as max_kelembapan
+        FROM readings
+      `).get();
+    }
 
     return res.status(200).json({
       status: 'sukses',
@@ -172,6 +207,82 @@ app.get('/api/stats', (req, res) => {
     });
   } catch (err) {
     console.error('Gagal mengambil statistik:', err.message);
+    return res.status(500).json({
+      status: 'error',
+      pesan: 'Terjadi kesalahan pada server'
+    });
+  }
+});
+
+/**
+ * BONUS 1: GET /api/devices
+ * Mengambil daftar unik semua device_id yang pernah mengirim data
+ */
+app.get('/api/devices', (req, res) => {
+  try {
+    const devices = db.prepare('SELECT DISTINCT device_id FROM readings ORDER BY device_id ASC').all();
+    return res.status(200).json({
+      status: 'sukses',
+      data: devices.map(d => d.device_id)
+    });
+  } catch (err) {
+    console.error('Gagal mengambil daftar device:', err.message);
+    return res.status(500).json({
+      status: 'error',
+      pesan: 'Terjadi kesalahan pada server'
+    });
+  }
+});
+
+/**
+ * BONUS 2: GET /api/settings/threshold
+ * Mengambil ambang batas suhu saat ini dari database
+ */
+app.get('/api/settings/threshold', (req, res) => {
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'temp_threshold'").get();
+    const threshold = row ? parseFloat(row.value) : 35.0;
+    return res.status(200).json({
+      status: 'sukses',
+      data: { temp_threshold: threshold }
+    });
+  } catch (err) {
+    console.error('Gagal mengambil ambang batas:', err.message);
+    return res.status(500).json({
+      status: 'error',
+      pesan: 'Terjadi kesalahan pada server'
+    });
+  }
+});
+
+/**
+ * BONUS 2: POST /api/settings/threshold
+ * Menyimpan ambang batas suhu baru ke database
+ */
+app.post('/api/settings/threshold', (req, res) => {
+  const { temp_threshold } = req.body;
+  const num = parseFloat(temp_threshold);
+
+  if (isNaN(num) || num < -40 || num > 80) {
+    return res.status(400).json({
+      status: 'error',
+      pesan: 'Ambang batas suhu harus berupa angka antara -40 dan 80 °C'
+    });
+  }
+
+  try {
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES ('temp_threshold', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(num.toFixed(1));
+
+    return res.status(200).json({
+      status: 'sukses',
+      pesan: 'Ambang batas suhu berhasil diperbarui',
+      data: { temp_threshold: num }
+    });
+  } catch (err) {
+    console.error('Gagal menyimpan ambang batas:', err.message);
     return res.status(500).json({
       status: 'error',
       pesan: 'Terjadi kesalahan pada server'

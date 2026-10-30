@@ -28,11 +28,20 @@
       </div>
 
       <div class="nav-controls">
+        <!-- Dropdown Pilih Device (Fitur Bonus) -->
+        <div class="control-group">
+          <label for="deviceSelect" class="control-label">Perangkat:</label>
+          <select id="deviceSelect" class="select-input">
+            <option value="all">Semua Perangkat</option>
+          </select>
+        </div>
+
         <div class="device-pill">
           <span class="pulse-dot" id="statusDot"></span>
           <span id="deviceStatusText" class="status-label">Memeriksa...</span>
           <span class="device-id-tag" id="lastSeenText">GH-01</span>
         </div>
+
         <button id="btnRefresh" class="btn-secondary" title="Segarkan Data Sekarang">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -60,7 +69,14 @@
               <span class="metric-value" id="tempValue">--</span>
               <span class="metric-unit">°C</span>
             </div>
-            <p class="metric-context" id="tempContext">Batas Panas: &gt; 35.0 °C</p>
+            <div class="threshold-control-box">
+              <label for="thresholdInput" class="threshold-label">Ambang Panas:</label>
+              <div class="threshold-input-row">
+                <input type="number" id="thresholdInput" class="threshold-num-input" value="35.0" step="0.5" min="-40" max="80">
+                <span class="threshold-unit">°C</span>
+                <button id="btnSaveThreshold" class="btn-save-threshold">Simpan</button>
+              </div>
+            </div>
           </div>
           <div class="card-footer">
             <span class="footer-time" id="tempLastUpdated">Pembaruan: -</span>

@@ -15,7 +15,14 @@ db.exec(`
     suhu REAL NOT NULL,
     kelembapan REAL NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
-  )
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('temp_threshold', '35.0');
 `);
 
 module.exports = db;

@@ -1,11 +1,12 @@
-// public/app.js - Logika Dashboard Monitoring IoT Greenhouse
+// public/app.js - Logika Dashboard Monitoring IoT Greenhouse (Mendukung Multi-device & Custom Threshold)
 
 let sensorChart = null;
+let currentThreshold = 35.0; // Default batas suhu panas
+let selectedDevice = 'all';
 
 // Format Waktu Lokal (WIB)
 function formatTime(isoString) {
   if (!isoString) return '-';
-  // SQLite CURRENT_TIMESTAMP disimpan dalam format UTC "YYYY-MM-DD HH:MM:SS"
   const d = new Date(isoString.replace(' ', 'T') + 'Z');
   return d.toLocaleTimeString('id-ID', {
     hour: '2-digit',
@@ -18,12 +19,10 @@ function formatTime(isoString) {
 function initChart() {
   const ctx = document.getElementById('sensorChart').getContext('2d');
   
-  // Gradien Suhu
   const tempGrad = ctx.createLinearGradient(0, 0, 0, 300);
   tempGrad.addColorStop(0, 'rgba(239, 68, 68, 0.25)');
   tempGrad.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
 
-  // Gradien Kelembapan
   const humGrad = ctx.createLinearGradient(0, 0, 0, 300);
   humGrad.addColorStop(0, 'rgba(37, 99, 235, 0.25)');
   humGrad.addColorStop(1, 'rgba(37, 99, 235, 0.0)');
@@ -69,9 +68,7 @@ function initChart() {
         intersect: false
       },
       plugins: {
-        legend: {
-          display: false // Menggunakan legend kustom yang sudah kita buat di HTML
-        },
+        legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(15, 23, 42, 0.9)',
           titleFont: { family: 'Plus Jakarta Sans', size: 12 },
@@ -110,10 +107,90 @@ function initChart() {
   });
 }
 
+// Ambil Ambang Batas Suhu dari Server/Database
+async function fetchThreshold() {
+  try {
+    const res = await fetch('/api/settings/threshold');
+    const result = await res.json();
+    if (result.status === 'sukses' && result.data) {
+      currentThreshold = parseFloat(result.data.temp_threshold) || 35.0;
+      const input = document.getElementById('thresholdInput');
+      if (input) input.value = currentThreshold.toFixed(1);
+    }
+  } catch (err) {
+    console.error('Gagal mengambil ambang batas:', err);
+  }
+}
+
+// Simpan Ambang Batas Suhu ke Server/Database
+async function saveThreshold() {
+  const input = document.getElementById('thresholdInput');
+  const btn = document.getElementById('btnSaveThreshold');
+  const val = parseFloat(input.value);
+
+  if (isNaN(val) || val < -40 || val > 80) {
+    alert('Masukkan angka suhu yang valid antara -40 dan 80 °C!');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const res = await fetch('/api/settings/threshold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ temp_threshold: val })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      currentThreshold = val;
+      btn.textContent = 'Tersimpan!';
+      setTimeout(() => { btn.textContent = 'Simpan'; btn.disabled = false; }, 1500);
+      refreshDashboard();
+    } else {
+      alert(result.pesan || 'Gagal menyimpan ambang batas');
+      btn.textContent = 'Simpan';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    console.error('Error simpan ambang batas:', err);
+    btn.textContent = 'Simpan';
+    btn.disabled = false;
+  }
+}
+
+// Ambil Daftar Semua Device untuk Dropdown
+async function fetchDevices() {
+  try {
+    const res = await fetch('/api/devices');
+    const result = await res.json();
+    if (result.status === 'sukses' && Array.isArray(result.data)) {
+      const select = document.getElementById('deviceSelect');
+      const currentVal = select.value;
+      
+      select.innerHTML = '<option value="all">Semua Perangkat</option>';
+      result.data.forEach(dev => {
+        const opt = document.createElement('option');
+        opt.value = dev;
+        opt.textContent = `Perangkat ${dev}`;
+        select.appendChild(opt);
+      });
+
+      if (result.data.includes(currentVal)) {
+        select.value = currentVal;
+      }
+    }
+  } catch (err) {
+    console.error('Gagal mengambil daftar device:', err);
+  }
+}
+
 // 1. Ambil Data Terbaru untuk Kartu Nilai & Status Online
 async function fetchLatestReading() {
   try {
-    const res = await fetch('/api/readings/latest');
+    const query = selectedDevice !== 'all' ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const res = await fetch(`/api/readings/latest${query}`);
     const result = await res.json();
     const data = result.data;
 
@@ -145,8 +222,8 @@ async function fetchLatestReading() {
     humidityLastUpdated.textContent = `Pembaruan: ${formattedTime}`;
     lastSeenText.textContent = `${data.device_id}`;
 
-    // Ketentuan Soal: Kartu suhu berubah warna merah jika suhu > 35 °C (status "Panas"), hijau jika normal
-    if (data.suhu > 35) {
+    // Ambang Batas Suhu Dinamis: Berubah merah jika suhu > ambang batas aktif, hijau jika normal
+    if (data.suhu > currentThreshold) {
       tempCard.className = 'metric-card card-state-hot';
       tempBadge.className = 'status-chip chip-hot';
       tempBadge.textContent = 'Panas';
@@ -156,7 +233,7 @@ async function fetchLatestReading() {
       tempBadge.textContent = 'Normal';
     }
 
-    // Ketentuan Soal: Indikator status perangkat: "Online" jika data terakhir < 30 detik, selain itu "Offline"
+    // Status Online/Offline: "Online" jika data < 30 detik
     const dataTime = new Date(data.created_at.replace(' ', 'T') + 'Z').getTime();
     const nowTime = Date.now();
     const diffSeconds = Math.round((nowTime - dataTime) / 1000);
@@ -178,7 +255,8 @@ async function fetchLatestReading() {
 // 2. Ambil Statistik Sensor
 async function fetchStats() {
   try {
-    const res = await fetch('/api/stats');
+    const query = selectedDevice !== 'all' ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const res = await fetch(`/api/stats${query}`);
     const result = await res.json();
     if (result.status === 'sukses' && result.data) {
       const { total_data, suhu, kelembapan } = result.data;
@@ -196,7 +274,8 @@ async function fetchStats() {
 // 3. Ambil Riwayat 20 Data untuk Grafik & 10 Data untuk Tabel
 async function fetchHistory() {
   try {
-    const res = await fetch('/api/readings?limit=20');
+    const query = selectedDevice !== 'all' ? `&device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const res = await fetch(`/api/readings?limit=20${query}`);
     const result = await res.json();
     const rows = result.data || [];
 
@@ -213,8 +292,8 @@ async function fetchHistory() {
           <td class="cell-mono cell-bold">${r.suhu.toFixed(1)} °C</td>
           <td class="cell-mono">${r.kelembapan.toFixed(1)} %</td>
           <td>
-            <span class="status-chip ${r.suhu > 35 ? 'chip-hot' : 'chip-normal'}">
-              ${r.suhu > 35 ? 'Panas' : 'Normal'}
+            <span class="status-chip ${r.suhu > currentThreshold ? 'chip-hot' : 'chip-normal'}">
+              ${r.suhu > currentThreshold ? 'Panas' : 'Normal'}
             </span>
           </td>
           <td class="cell-mono" style="color: #64748b;">${formatTime(r.created_at)}</td>
@@ -222,7 +301,7 @@ async function fetchHistory() {
       `).join('');
     }
 
-    // Update Chart.js (Urutkan dari data terlama ke terbaru agar grafik linier bergerak ke kanan)
+    // Update Chart.js
     if (sensorChart && rows.length > 0) {
       const chartRows = [...rows].reverse();
       sensorChart.data.labels = chartRows.map(r => formatTime(r.created_at));
@@ -238,16 +317,33 @@ async function fetchHistory() {
 // Fungsi Pembaruan Seluruh Komponen Dashboard
 async function refreshDashboard() {
   await Promise.all([
+    fetchDevices(),
     fetchLatestReading(),
     fetchStats(),
     fetchHistory()
   ]);
 }
 
-// Jalankan saat halaman siap
-document.addEventListener('DOMContentLoaded', () => {
+// Jalankan saat dokumen siap
+document.addEventListener('DOMContentLoaded', async () => {
   initChart();
-  refreshDashboard();
+  await fetchThreshold();
+  await refreshDashboard();
+
+  // Event Listener Ganti Dropdown Device
+  const deviceSelect = document.getElementById('deviceSelect');
+  if (deviceSelect) {
+    deviceSelect.addEventListener('change', (e) => {
+      selectedDevice = e.target.value;
+      refreshDashboard();
+    });
+  }
+
+  // Event Listener Simpan Ambang Batas Suhu
+  const btnSaveThreshold = document.getElementById('btnSaveThreshold');
+  if (btnSaveThreshold) {
+    btnSaveThreshold.addEventListener('click', saveThreshold);
+  }
 
   // Tombol Refresh Manual
   const btnRefresh = document.getElementById('btnRefresh');

@@ -144,6 +144,106 @@ body {
   font-weight: 700;
 }
 
+/* Dropdown & Control Group */
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.select-input {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.select-input:hover, .select-input:focus {
+  border-color: var(--border-focus);
+}
+
+/* Threshold Input di Kartu Suhu */
+.threshold-control-box {
+  margin-top: 6px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background-color: var(--bg-subtle);
+  border-radius: 8px;
+}
+
+.threshold-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.threshold-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.threshold-num-input {
+  width: 64px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.threshold-num-input:focus {
+  border-color: #3b82f6;
+}
+
+.threshold-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-save-threshold {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-save-threshold:hover {
+  background: #334155;
+}
+
+.btn-save-threshold:active {
+  transform: scale(0.96);
+}
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;
