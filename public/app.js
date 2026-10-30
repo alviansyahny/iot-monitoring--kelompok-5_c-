@@ -167,17 +167,35 @@ async function fetchDevices() {
     const result = await res.json();
     if (result.status === 'sukses' && Array.isArray(result.data)) {
       const select = document.getElementById('deviceSelect');
-      const currentVal = select.value;
+      if (!select) return;
       
-      select.innerHTML = '<option value="all">Semua Perangkat</option>';
-      result.data.forEach(dev => {
-        const opt = document.createElement('option');
-        opt.value = dev;
-        opt.textContent = `Perangkat ${dev}`;
-        select.appendChild(opt);
-      });
+      const currentVal = selectedDevice;
+      
+      // Ambil opsi yang saat ini ada
+      const existingOptions = Array.from(select.options).map(o => o.value);
+      
+      // Cek apakah ada perubahan device
+      let isDifferent = false;
+      if (result.data.length !== (existingOptions.length - 1)) {
+        isDifferent = true;
+      } else {
+        for (const dev of result.data) {
+          if (!existingOptions.includes(dev)) {
+            isDifferent = true;
+            break;
+          }
+        }
+      }
 
-      if (result.data.includes(currentVal)) {
+      // Render ulang HANYA jika list perangkat bertambah/berubah agar tidak mereset pilihan user
+      if (isDifferent) {
+        select.innerHTML = '<option value="all">Semua Perangkat</option>';
+        result.data.forEach(dev => {
+          const opt = document.createElement('option');
+          opt.value = dev;
+          opt.textContent = `Perangkat ${dev}`;
+          select.appendChild(opt);
+        });
         select.value = currentVal;
       }
     }
@@ -282,15 +300,15 @@ async function fetchHistory() {
     // Update Tabel Riwayat (10 Data Terakhir)
     const tbody = document.getElementById('readingsTableBody');
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="cell-loading">Belum ada pembacaan sensor yang masuk</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="cell-loading">Belum ada pembacaan sensor untuk perangkat ini</td></tr>';
     } else {
       const tableData = rows.slice(0, 10);
       tbody.innerHTML = tableData.map(r => `
         <tr>
           <td class="cell-mono">#${r.id}</td>
           <td><strong class="cell-mono">${r.device_id}</strong></td>
-          <td class="cell-mono cell-bold">${r.suhu.toFixed(1)} °C</td>
-          <td class="cell-mono">${r.kelembapan.toFixed(1)} %</td>
+          <td class="cell-mono cell-bold">${Number(r.suhu).toFixed(1)} °C</td>
+          <td class="cell-mono">${Number(r.kelembapan).toFixed(1)} %</td>
           <td>
             <span class="status-chip ${r.suhu > currentThreshold ? 'chip-hot' : 'chip-normal'}">
               ${r.suhu > currentThreshold ? 'Panas' : 'Normal'}
@@ -301,13 +319,20 @@ async function fetchHistory() {
       `).join('');
     }
 
-    // Update Chart.js
-    if (sensorChart && rows.length > 0) {
-      const chartRows = [...rows].reverse();
-      sensorChart.data.labels = chartRows.map(r => formatTime(r.created_at));
-      sensorChart.data.datasets[0].data = chartRows.map(r => r.suhu);
-      sensorChart.data.datasets[1].data = chartRows.map(r => r.kelembapan);
-      sensorChart.update();
+    // Update Chart.js (Reset jika kosong agar grafik tidak freeze)
+    if (sensorChart) {
+      if (rows.length === 0) {
+        sensorChart.data.labels = [];
+        sensorChart.data.datasets[0].data = [];
+        sensorChart.data.datasets[1].data = [];
+        sensorChart.update();
+      } else {
+        const chartRows = [...rows].reverse();
+        sensorChart.data.labels = chartRows.map(r => formatTime(r.created_at));
+        sensorChart.data.datasets[0].data = chartRows.map(r => r.suhu);
+        sensorChart.data.datasets[1].data = chartRows.map(r => r.kelembapan);
+        sensorChart.update();
+      }
     }
   } catch (err) {
     console.error('Gagal mengambil riwayat pembacaan:', err);
