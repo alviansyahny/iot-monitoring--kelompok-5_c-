@@ -1,7 +1,7 @@
 // simulator.js -> Jalankan dengan perintah: node simulator.js
 // Berkas ini mensimulasikan mikrokontroler ESP32 + sensor DHT22 pada greenhouse
 
-const URL = process.env.TARGET_URL || 'http://localhost:3005/api/readings';
+const URL = process.env.TARGET_URL || 'http://iot.walker880.my.id/api/readings';
 
 console.log('==================================================');
 console.log('  SIMULATOR SENSOR IOT GREENHOUSE (GH-01)');

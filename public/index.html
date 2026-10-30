@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Greenhouse IoT Monitoring System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Navbar / Header Atas -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="logo-box">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12A10 10 0 0 1 12 2z"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="nav-title">Greenhouse IoT Monitor</h1>
+          <p class="nav-subtitle">Sistem Pemantauan Suhu & Kelembapan Waktu Nyata</p>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="device-pill">
+          <span class="pulse-dot" id="statusDot"></span>
+          <span id="deviceStatusText" class="status-label">Memeriksa...</span>
+          <span class="device-id-tag" id="lastSeenText">GH-01</span>
+        </div>
+        <button id="btnRefresh" class="btn-secondary" title="Segarkan Data Sekarang">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          Segarkan
+        </button>
+      </div>
+    </header>
+
+    <!-- Konten Dashboard Utama -->
+    <main class="main-content">
+      <!-- Grid Kartu Sensor Terkini & Statistik -->
+      <section class="metrics-grid">
+        <!-- Kartu Suhu -->
+        <article class="metric-card" id="tempCard">
+          <div class="card-head">
+            <div class="metric-title-group">
+              <span class="metric-icon temp-icon">🌡️</span>
+              <span class="metric-name">Suhu Terkini</span>
+            </div>
+            <span class="status-chip" id="tempBadge">Normal</span>
+          </div>
+          <div class="card-body">
+            <div class="metric-number-wrap">
+              <span class="metric-value" id="tempValue">--</span>
+              <span class="metric-unit">°C</span>
+            </div>
+            <p class="metric-context" id="tempContext">Batas Panas: &gt; 35.0 °C</p>
+          </div>
+          <div class="card-footer">
+            <span class="footer-time" id="tempLastUpdated">Pembaruan: -</span>
+          </div>
+        </article>
+
+        <!-- Kartu Kelembapan -->
+        <article class="metric-card" id="humidityCard">
+          <div class="card-head">
+            <div class="metric-title-group">
+              <span class="metric-icon hum-icon">💧</span>
+              <span class="metric-name">Kelembapan Terkini</span>
+            </div>
+            <span class="status-chip chip-optimal" id="humidityBadge">Optimal</span>
+          </div>
+          <div class="card-body">
+            <div class="metric-number-wrap">
+              <span class="metric-value" id="humidityValue">--</span>
+              <span class="metric-unit">%</span>
+            </div>
+            <p class="metric-context">Target Ideal: 60% – 85%</p>
+          </div>
+          <div class="card-footer">
+            <span class="footer-time" id="humidityLastUpdated">Pembaruan: -</span>
+          </div>
+        </article>
+
+        <!-- Kartu Rangkuman Statistik -->
+        <article class="metric-card stats-card">
+          <div class="card-head">
+            <div class="metric-title-group">
+              <span class="metric-icon stat-icon">📊</span>
+              <span class="metric-name">Statistik Sensor</span>
+            </div>
+            <span class="data-count-chip" id="statTotalData">0 Data</span>
+          </div>
+          <div class="stats-compact-grid">
+            <div class="stat-mini-box">
+              <span class="stat-label">Rata-Rata Suhu</span>
+              <strong class="stat-num" id="statTempAvg">-- °C</strong>
+              <small class="stat-sub" id="statTempMinMax">Min: -- | Max: --</small>
+            </div>
+            <div class="stat-mini-box">
+              <span class="stat-label">Rata-Rata Kelembapan</span>
+              <strong class="stat-num" id="statHumAvg">-- %</strong>
+              <small class="stat-sub" id="statHumMinMax">Min: -- | Max: --</small>
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="footer-time">Agregasi SQL Server</span>
+          </div>
+        </article>
+      </section>
+
+      <!-- Section Grafik Garis Waktu Nyata -->
+      <section class="panel-section chart-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Grafik Tren Sensor (20 Pembacaan Terakhir)</h2>
+            <p class="panel-desc">Sinkronisasi otomatis setiap 5 detik tanpa perlu muat ulang halaman</p>
+          </div>
+          <div class="chart-legend-custom">
+            <span class="legend-badge legend-temp"><span class="legend-color-dot dot-temp"></span> Suhu (°C)</span>
+            <span class="legend-badge legend-hum"><span class="legend-color-dot dot-hum"></span> Kelembapan (%)</span>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="sensorChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Section Tabel Riwayat Pembacaan -->
+      <section class="panel-section table-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Riwayat 10 Data Sensor Terakhir</h2>
+            <p class="panel-desc">Data tersimpan di SQLite (Tabel readings)</p>
+          </div>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th>Kode Perangkat</th>
+                <th>Suhu</th>
+                <th>Kelembapan</th>
+                <th>Kondisi Suhu</th>
+                <th>Waktu Simpan</th>
+              </tr>
+            </thead>
+            <tbody id="readingsTableBody">
+              <tr>
+                <td colspan="6" class="cell-loading">Memuat data pembacaan sensor...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer Identitas Mahasiswa & Sistem -->
+    <footer class="app-footer">
+      <p>Praktikum Workshop Sistem Tertanam &bull; Full Stack Web Monitoring IoT Greenhouse</p>
+      <p class="footer-credits">Endpoint API: <code>/api/readings</code> &bull; Database: SQLite 3 &bull; Polling: 5 Detik</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
