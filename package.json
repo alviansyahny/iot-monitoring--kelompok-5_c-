@@ -1,0 +1,22 @@
+{
+  "name": "iot-monitoring",
+  "version": "1.0.0",
+  "description": "Web Monitoring IoT Suhu dan Kelembapan Greenhouse",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "sim": "node simulator.js"
+  },
+  "keywords": [
+    "iot",
+    "monitoring",
+    "express",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.3.0"
+  }
+}
