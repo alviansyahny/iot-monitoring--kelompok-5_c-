@@ -113,15 +113,3 @@ Simulator akan mulai mengirimkan data sensor setiap 5 detik ke backend.
 
 ### 2. Uji Endpoint REST API (POST /api/readings)
 ![Uji Endpoint POST](screenshots/post_test.png)
-
----
-
-## Riwayat Commit Git
-
-Proyek ini dikembangkan secara modular dan bertahap sesuai spesifikasi modul praktikum:
-1. `chore: setup proyek`
-2. `feat: skema database`
-3. `feat: API readings`
-4. `feat: simulator sensor`
-5. `feat: dashboard monitoring`
-6. `docs: README`
