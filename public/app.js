@@ -168,36 +168,31 @@ async function fetchDevices() {
     if (result.status === 'sukses' && Array.isArray(result.data)) {
       const select = document.getElementById('deviceSelect');
       if (!select) return;
-      
-      const currentVal = selectedDevice;
-      
-      // Ambil opsi yang saat ini ada
-      const existingOptions = Array.from(select.options).map(o => o.value);
-      
-      // Cek apakah ada perubahan device
-      let isDifferent = false;
-      if (result.data.length !== (existingOptions.length - 1)) {
-        isDifferent = true;
-      } else {
-        for (const dev of result.data) {
-          if (!existingOptions.includes(dev)) {
-            isDifferent = true;
-            break;
-          }
-        }
+
+      const deviceList = result.data;
+      if (deviceList.length === 0) return;
+
+      // Jika selectedDevice belum diset atau masih 'all', defaultkan ke perangkat pertama yang aktif
+      if (!selectedDevice || selectedDevice === 'all' || !deviceList.includes(selectedDevice)) {
+        selectedDevice = deviceList[0];
       }
 
-      // Render ulang HANYA jika list perangkat bertambah/berubah agar tidak mereset pilihan user
-      if (isDifferent) {
-        select.innerHTML = '<option value="all">Semua Perangkat</option>';
-        result.data.forEach(dev => {
+      // Ambil opsi yang saat ini ada
+      const currentOptions = Array.from(select.options).map(o => o.value);
+      const isMatch = deviceList.length === currentOptions.length &&
+                      deviceList.every((val, idx) => val === currentOptions[idx]);
+
+      if (!isMatch) {
+        select.innerHTML = '';
+        deviceList.forEach(dev => {
           const opt = document.createElement('option');
           opt.value = dev;
-          opt.textContent = `Perangkat ${dev}`;
+          opt.textContent = `Perangkat: ${dev}`;
           select.appendChild(opt);
         });
-        select.value = currentVal;
       }
+
+      select.value = selectedDevice;
     }
   } catch (err) {
     console.error('Gagal mengambil daftar device:', err);
@@ -207,7 +202,7 @@ async function fetchDevices() {
 // 1. Ambil Data Terbaru untuk Kartu Nilai & Status Online
 async function fetchLatestReading() {
   try {
-    const query = selectedDevice !== 'all' ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const query = selectedDevice ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
     const res = await fetch(`/api/readings/latest${query}`);
     const result = await res.json();
     const data = result.data;
@@ -229,6 +224,7 @@ async function fetchLatestReading() {
       humidityValue.textContent = '--';
       statusDot.className = 'pulse-dot offline';
       deviceStatusText.textContent = 'Offline (Belum Ada Data)';
+      lastSeenText.textContent = selectedDevice || '-';
       return;
     }
 
@@ -273,12 +269,12 @@ async function fetchLatestReading() {
 // 2. Ambil Statistik Sensor
 async function fetchStats() {
   try {
-    const query = selectedDevice !== 'all' ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const query = selectedDevice ? `?device_id=${encodeURIComponent(selectedDevice)}` : '';
     const res = await fetch(`/api/stats${query}`);
     const result = await res.json();
     if (result.status === 'sukses' && result.data) {
       const { total_data, suhu, kelembapan } = result.data;
-      document.getElementById('statTotalData').textContent = `${total_data} Data`;
+      document.getElementById('statTotalData').textContent = `${total_data} Data (${selectedDevice})`;
       document.getElementById('statTempAvg').textContent = `${suhu.rata_rata}°C`;
       document.getElementById('statTempMinMax').textContent = `Min: ${suhu.minimum}°C | Max: ${suhu.maksimum}°C`;
       document.getElementById('statHumAvg').textContent = `${kelembapan.rata_rata}%`;
@@ -292,7 +288,7 @@ async function fetchStats() {
 // 3. Ambil Riwayat 20 Data untuk Grafik & 10 Data untuk Tabel
 async function fetchHistory() {
   try {
-    const query = selectedDevice !== 'all' ? `&device_id=${encodeURIComponent(selectedDevice)}` : '';
+    const query = selectedDevice ? `&device_id=${encodeURIComponent(selectedDevice)}` : '';
     const res = await fetch(`/api/readings?limit=20${query}`);
     const result = await res.json();
     const rows = result.data || [];
@@ -300,7 +296,7 @@ async function fetchHistory() {
     // Update Tabel Riwayat (10 Data Terakhir)
     const tbody = document.getElementById('readingsTableBody');
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="cell-loading">Belum ada pembacaan sensor untuk perangkat ini</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="6" class="cell-loading">Belum ada data sensor untuk perangkat ${selectedDevice}</td></tr>`;
     } else {
       const tableData = rows.slice(0, 10);
       tbody.innerHTML = tableData.map(r => `
